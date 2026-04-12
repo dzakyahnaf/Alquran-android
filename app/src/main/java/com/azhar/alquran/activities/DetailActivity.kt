@@ -20,11 +20,12 @@ import com.azhar.alquran.adapter.DetailAdapter
 import com.azhar.alquran.model.main.ModelAyat
 import com.azhar.alquran.model.main.ModelSurah
 import com.azhar.alquran.viewmodel.SurahViewModel
-import kotlinx.android.synthetic.main.activity_detail.*
+import com.azhar.alquran.databinding.ActivityDetailBinding
 import java.io.IOException
 import java.util.*
 
 class DetailActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityDetailBinding
     lateinit var strNomor: String
     lateinit var strNama: String
     lateinit var strArti: String
@@ -40,7 +41,8 @@ class DetailActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_detail)
+        binding = ActivityDetailBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         setInitLayout()
         setViewModel()
@@ -48,8 +50,8 @@ class DetailActivity : AppCompatActivity() {
 
     @SuppressLint("RestrictedApi")
     private fun setInitLayout() {
-        toolbar.setTitle(null)
-        setSupportActionBar(toolbar)
+        binding.toolbar.setTitle(null)
+        setSupportActionBar(binding.toolbar)
         assert(supportActionBar != null)
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
 
@@ -57,31 +59,31 @@ class DetailActivity : AppCompatActivity() {
 
         modelSurah = intent.getSerializableExtra(DETAIL_SURAH) as ModelSurah
         if (modelSurah != null) {
-            strNomor = modelSurah.nomor
-            strNama = modelSurah.nama
-            strArti = modelSurah.arti
-            strType = modelSurah.type
-            strAyat = modelSurah.ayat
+            strNomor = modelSurah.nomor.toString()
+            strNama = modelSurah.nama ?: ""
+            strArti = modelSurah.arti ?: ""
+            strType = modelSurah.type ?: ""
+            strAyat = modelSurah.ayat.toString()
             strAudio = modelSurah.audio
-            strKeterangan = modelSurah.keterangan
+            strKeterangan = modelSurah.keterangan ?: ""
 
-            fabStop.visibility = View.GONE
-            fabPlay.visibility = View.VISIBLE
+            binding.fabStop.visibility = View.GONE
+            binding.fabPlay.visibility = View.VISIBLE
 
             //Set text
-            tvHeader.text = strNama
-            tvTitle.text = strNama
-            tvSubTitle.text = strArti
-            tvInfo.text = "$strType - $strAyat Ayat "
+            binding.tvHeader.text = strNama
+            binding.tvTitle.text = strNama
+            binding.tvSubTitle.text = strArti
+            binding.tvInfo.text = "$strType - $strAyat Ayat "
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) tvKet.text =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) binding.tvKet.text =
                 Html.fromHtml(strKeterangan, Html.FROM_HTML_MODE_COMPACT) else {
-                tvKet.text = Html.fromHtml(strKeterangan)
+                binding.tvKet.text = Html.fromHtml(strKeterangan)
             }
 
             val mediaPlayer = MediaPlayer()
 
-            fabPlay.setOnClickListener {
+            binding.fabPlay.setOnClickListener {
                 try {
                     mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC)
                     mediaPlayer.setDataSource(strAudio)
@@ -90,15 +92,15 @@ class DetailActivity : AppCompatActivity() {
                 } catch (e: IOException) {
                     e.printStackTrace()
                 }
-                fabPlay.visibility = View.GONE
-                fabStop.visibility = View.VISIBLE
+                binding.fabPlay.visibility = View.GONE
+                binding.fabStop.visibility = View.VISIBLE
             }
 
-            fabStop.setOnClickListener {
+            binding.fabStop.setOnClickListener {
                 mediaPlayer.stop()
                 mediaPlayer.reset()
-                fabPlay.visibility = View.VISIBLE
-                fabStop.visibility = View.GONE
+                binding.fabPlay.visibility = View.VISIBLE
+                binding.fabStop.visibility = View.GONE
             }
         }
 
@@ -108,9 +110,9 @@ class DetailActivity : AppCompatActivity() {
         progressDialog.setMessage("Sedang menampilkan data...")
 
         detailAdapter = DetailAdapter()
-        rvAyat.setHasFixedSize(true)
-        rvAyat.layoutManager = LinearLayoutManager(this)
-        rvAyat.adapter = detailAdapter
+        binding.rvAyat.setHasFixedSize(true)
+        binding.rvAyat.layoutManager = LinearLayoutManager(this)
+        binding.rvAyat.adapter = detailAdapter
     }
 
     private fun setViewModel() {

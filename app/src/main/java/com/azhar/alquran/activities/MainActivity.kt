@@ -18,12 +18,14 @@ import com.azhar.alquran.adapter.MainAdapter
 import com.azhar.alquran.fragment.FragmentJadwalSholat.Companion.newInstance
 import com.azhar.alquran.model.main.ModelSurah
 import com.azhar.alquran.viewmodel.SurahViewModel
+import com.azhar.alquran.databinding.ActivityMainBinding
 import im.delight.android.location.SimpleLocation
-import kotlinx.android.synthetic.main.activity_main.*
 import java.io.IOException
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
 
     var REQ_PERMISSION = 100
     var strCurrentLatitude = 0.0
@@ -38,7 +40,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         setInitLayout()
         setPermission()
         setLocation()
@@ -56,22 +59,22 @@ class MainActivity : AppCompatActivity() {
         strDate = DateFormat.format("EEEE", dateNow) as String
         strDateNow = DateFormat.format("d MMMM yyyy", dateNow) as String
 
-        tvToday.setText("$strDate,")
-        tvDate.setText(strDateNow)
+        binding.tvToday.setText("$strDate,")
+        binding.tvDate.setText(strDateNow)
 
         mainAdapter = MainAdapter(this)
-        rvSurah.setHasFixedSize(true)
-        rvSurah.setLayoutManager(LinearLayoutManager(this))
-        rvSurah.setAdapter(mainAdapter)
+        binding.rvSurah.setHasFixedSize(true)
+        binding.rvSurah.setLayoutManager(LinearLayoutManager(this))
+        binding.rvSurah.setAdapter(mainAdapter)
 
         val jadwalSholat = newInstance("Jadwal Sholat")
-        layoutTime.setOnClickListener {
+        binding.layoutTime.setOnClickListener {
             jadwalSholat.show(
                 supportFragmentManager, jadwalSholat.tag
             )
         }
 
-        layoutMosque.setOnClickListener {
+        binding.layoutMosque.setOnClickListener {
             startActivity(
                 Intent(
                     this@MainActivity,
@@ -101,7 +104,7 @@ class MainActivity : AppCompatActivity() {
             val addressList = geocoder.getFromLocation(strCurrentLatitude, strCurrentLongitude, 1)
             if (addressList != null && addressList.size > 0) {
                 val strCurrentLocation = addressList[0].locality
-                tvLocation.text = strCurrentLocation
+                binding.tvLocation.text = strCurrentLocation
             }
         } catch (e: IOException) {
             e.printStackTrace()

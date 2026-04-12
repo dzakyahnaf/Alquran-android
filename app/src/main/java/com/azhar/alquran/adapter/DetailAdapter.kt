@@ -6,8 +6,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.azhar.alquran.R
+import com.azhar.alquran.databinding.ListItemAyatBinding
 import com.azhar.alquran.model.main.ModelAyat
-import kotlinx.android.synthetic.main.list_item_ayat.view.*
 import java.util.*
 
 /**
@@ -29,16 +29,16 @@ class DetailAdapter : RecyclerView.Adapter<DetailAdapter.ViewHolder>() {
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.list_item_ayat, parent, false)
-        return ViewHolder(view)
+        val binding = ListItemAyatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val data = modelAyatList[position]
 
-        holder.tvNomorAyat.text = data.nomor
-        holder.tvArabic.text = data.arab
-        holder.tvTerjemahan.text = data.indo
+        holder.binding.tvNomorAyat.text = data.nomor.toString()
+        holder.binding.tvArabic.text = data.arab
+        holder.binding.tvTerjemahan.text = data.indo
     }
 
     override fun getItemCount(): Int {
@@ -46,15 +46,6 @@ class DetailAdapter : RecyclerView.Adapter<DetailAdapter.ViewHolder>() {
     }
 
     //Class Holder
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        var tvNomorAyat: TextView
-        var tvArabic: TextView
-        var tvTerjemahan: TextView
-
-        init {
-            tvNomorAyat = itemView.tvNomorAyat
-            tvArabic = itemView.tvArabic
-            tvTerjemahan = itemView.tvTerjemahan
-        }
+    class ViewHolder(val binding: ListItemAyatBinding) : RecyclerView.ViewHolder(binding.root) {
     }
 }

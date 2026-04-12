@@ -5,7 +5,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.azhar.alquran.model.main.ModelAyat
+import com.azhar.alquran.model.main.ModelResult
 import com.azhar.alquran.model.main.ModelSurah
+import com.azhar.alquran.model.main.ModelSuratDetail
 import com.azhar.alquran.networking.ApiInterface
 import com.azhar.alquran.networking.ApiService
 import retrofit2.Call
@@ -30,18 +32,27 @@ class SurahViewModel : ViewModel() {
         val apiService: ApiInterface = ApiService.getQuran()
         val call = apiService.getListSurah()
 
-        call.enqueue(object : Callback<ArrayList<ModelSurah>> {
-            override fun onResponse(call: Call<ArrayList<ModelSurah>>, response: Response<ArrayList<ModelSurah>>) {
+        call.enqueue(object : Callback<ModelResult<ArrayList<ModelSurah>>> {
+            override fun onResponse(call: Call<ModelResult<ArrayList<ModelSurah>>>, response: Response<ModelResult<ArrayList<ModelSurah>>>) {
                 if (!response.isSuccessful) {
                     Log.e("response", response.toString())
-                } else if (response.body() != null) {
-                    val items: ArrayList<ModelSurah> = ArrayList(response.body())
-                    modelSurahMutableLiveData.postValue(items)
+                    modelSurahMutableLiveData.postValue(ArrayList())
+                } else {
+                    val body = response.body()
+                    if (body != null && body.code == 200) {
+                        val items: ArrayList<ModelSurah> = body.data ?: ArrayList()
+                        Log.d("SurahViewModel", "Loaded ${items.size} surahs")
+                        modelSurahMutableLiveData.postValue(items)
+                    } else {
+                        Log.e("SurahViewModel", "API Error: ${body?.message}")
+                        modelSurahMutableLiveData.postValue(ArrayList())
+                    }
                 }
             }
 
-            override fun onFailure(call: Call<ArrayList<ModelSurah>>, t: Throwable) {
+            override fun onFailure(call: Call<ModelResult<ArrayList<ModelSurah>>>, t: Throwable) {
                 Log.e("failure", t.toString())
+                modelSurahMutableLiveData.postValue(ArrayList())
             }
         })
     }
@@ -50,18 +61,27 @@ class SurahViewModel : ViewModel() {
         val apiService: ApiInterface = ApiService.getQuran()
         val call = apiService.getDetailSurah(nomor)
 
-        call.enqueue(object : Callback<ArrayList<ModelAyat>> {
-            override fun onResponse(call: Call<ArrayList<ModelAyat>>, response: Response<ArrayList<ModelAyat>>) {
+        call.enqueue(object : Callback<ModelResult<ModelSuratDetail>> {
+            override fun onResponse(call: Call<ModelResult<ModelSuratDetail>>, response: Response<ModelResult<ModelSuratDetail>>) {
                 if (!response.isSuccessful) {
                     Log.e("response", response.toString())
-                } else if (response.body() != null) {
-                    val items: ArrayList<ModelAyat> = ArrayList(response.body())
-                    modelAyatMutableLiveData.postValue(items)
+                    modelAyatMutableLiveData.postValue(ArrayList())
+                } else {
+                    val body = response.body()
+                    if (body != null && body.code == 200) {
+                        val items: ArrayList<ModelAyat> = body.data?.verses ?: ArrayList()
+                        Log.d("SurahViewModel", "Loaded ${items.size} verses")
+                        modelAyatMutableLiveData.postValue(items)
+                    } else {
+                        Log.e("SurahViewModel", "API Error: ${body?.message}")
+                        modelAyatMutableLiveData.postValue(ArrayList())
+                    }
                 }
             }
 
-            override fun onFailure(call: Call<ArrayList<ModelAyat>>, t: Throwable) {
+            override fun onFailure(call: Call<ModelResult<ModelSuratDetail>>, t: Throwable) {
                 Log.e("failure", t.toString())
+                modelAyatMutableLiveData.postValue(ArrayList())
             }
         })
     }

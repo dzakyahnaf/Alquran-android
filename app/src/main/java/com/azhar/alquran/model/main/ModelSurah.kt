@@ -13,27 +13,32 @@ import java.io.Serializable
  */
 
 class ModelSurah : Serializable {
-    @SerializedName("arti")
-    lateinit var arti: String
-
-    @SerializedName("asma")
-    lateinit var asma: String
-
-    @SerializedName("ayat")
-    lateinit var ayat: String
+    @SerializedName("nomor")
+    var nomor: Int = 0
 
     @SerializedName("nama")
-    lateinit var nama: String
+    var asma: String? = null
 
-    @SerializedName("type")
-    lateinit var type: String
+    @SerializedName("namaLatin")
+    var nama: String? = null
 
-    @SerializedName("audio")
-    lateinit var audio: String
+    @SerializedName("jumlahAyat")
+    var ayat: Int = 0
 
-    @SerializedName("nomor")
-    lateinit var nomor: String
+    @SerializedName("tempatTurun")
+    var type: String? = null
 
-    @SerializedName("keterangan")
-    lateinit var keterangan: String
+    @SerializedName("arti")
+    var arti: String? = null
+
+    @SerializedName("deskripsi")
+    var keterangan: String? = null
+
+    @SerializedName("audioFull")
+    var audioFull: Map<String, String>? = null
+
+    // Computed property for audio compatibility
+    val audio: String
+        get() = audioFull?.get("01") ?: ""
 }
+

@@ -16,7 +16,7 @@
             android:id="@+id/rvTop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#fff5f5f5">
+            android:background="@color/colorMint">
 
             <LinearLayout
                 android:layout_width="25dp"

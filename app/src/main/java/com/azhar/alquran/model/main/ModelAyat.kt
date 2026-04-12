@@ -12,12 +12,12 @@ import com.google.gson.annotations.SerializedName
  */
 
 class ModelAyat {
-    @SerializedName("ar")
-    lateinit var arab: String
+    @SerializedName("teksArab")
+    var arab: String? = null
 
-    @SerializedName("id")
-    lateinit var indo: String
+    @SerializedName("teksIndonesia")
+    var indo: String? = null
 
-    @SerializedName("nomor")
-    lateinit var nomor: String
-}
+    @SerializedName("nomorAyat")
+    var nomor: Int = 0
+}

@@ -1,8 +1,11 @@
 package com.azhar.alquran.networking
 
 import retrofit2.http.GET
+import com.azhar.alquran.model.main.ModelPrayerResult
+import com.azhar.alquran.model.main.ModelResult
 import com.azhar.alquran.model.main.ModelSurah
-import com.azhar.alquran.model.main.ModelAyat
+import com.azhar.alquran.model.main.ModelSuratDetail
+import com.azhar.alquran.model.nearby.ModelResultOSM
 import com.azhar.alquran.model.response.ModelResultNearby
 import retrofit2.Call
 import retrofit2.http.Path
@@ -19,13 +22,20 @@ import java.util.ArrayList
  */
 
 interface ApiInterface {
-    @GET("/99c279bb173a6e28359c/data")
-    fun getListSurah(): Call<ArrayList<ModelSurah>>
+    @GET("surat")
+    fun getListSurah(): Call<ModelResult<ArrayList<ModelSurah>>>
 
-    @GET("/99c279bb173a6e28359c/surat/{nomor}")
+    @GET("surat/{nomor}")
     fun getDetailSurah(
         @Path("nomor") nomor: String
-    ): Call<ArrayList<ModelAyat>>
+    ): Call<ModelResult<ModelSuratDetail>>
+
+    @GET("shalat/jadwal/{nama_kota}/{tahun}/{bulan}")
+    fun getJadwalSholat(
+        @Path("nama_kota") nama_kota: String,
+        @Path("tahun") tahun: String,
+        @Path("bulan") bulan: String
+    ): Call<ModelResult<ModelPrayerResult>>
 
     @GET("place/nearbysearch/json")
     fun getDataResult(
@@ -34,4 +44,9 @@ interface ApiInterface {
         @Query("location") location: String,
         @Query("rankby") rankby: String
     ): Call<ModelResultNearby>
+
+    @GET("interpreter")
+    fun getMasjidOSM(
+        @Query("data") data: String
+    ): Call<ModelResultOSM>
 }

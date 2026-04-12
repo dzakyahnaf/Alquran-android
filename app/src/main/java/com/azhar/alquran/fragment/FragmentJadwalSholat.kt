@@ -15,14 +15,25 @@ import com.azhar.quran.model.DaftarKota
 import com.azhar.quran.utils.ClientAsyncTask
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.vivekkaushik.datepicker.DatePickerTimeline
-import kotlinx.android.synthetic.main.fragment_jadwal_sholat.*
+import com.azhar.alquran.databinding.FragmentJadwalSholatBinding
 import org.json.JSONException
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
+import com.azhar.alquran.model.main.ModelPrayerResult
+import com.azhar.alquran.model.main.ModelResult
+import com.azhar.alquran.networking.ApiInterface
+import com.azhar.alquran.networking.ApiService
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import android.util.Log
 import kotlin.collections.ArrayList
 
 class FragmentJadwalSholat : BottomSheetDialogFragment() {
+
+    private var _binding: FragmentJadwalSholatBinding? = null
+    private val binding get() = _binding!!
 
     lateinit var strArg: String
     lateinit var listDaftarKota: MutableList<DaftarKota>
@@ -55,14 +66,15 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val rootView: View = inflater.inflate(R.layout.fragment_jadwal_sholat, container, false)
+        _binding = FragmentJadwalSholatBinding.inflate(inflater, container, false)
+        val rootView = binding.root
         progressDialog = ProgressDialog(activity)
         progressDialog.setTitle("Mohon Tunggu")
         progressDialog.setCancelable(false)
         progressDialog.setMessage("Sedang menampilkan jadwal...")
 
         //show data spinner
-        val spKota: Spinner = rootView.findViewById(R.id.spinKota)
+        val spKota: Spinner = binding.spinKota
         listDaftarKota = ArrayList()
         daftarKotaAdapter = ArrayAdapter(
             requireActivity().getApplicationContext(),
@@ -81,7 +93,7 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
         }
 
         //show date time
-        val datePickerTimeline: DatePickerTimeline = rootView.findViewById(R.id.dateTimeline)
+        val datePickerTimeline: DatePickerTimeline = binding.dateTimeline
         val date = Calendar.getInstance()
         val mYear: Int = date.get(Calendar.YEAR)
         val mMonth: Int = date.get(Calendar.MONTH)
@@ -105,65 +117,65 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
         return rootView
     }
 
-    private fun getDataJadwal(id: Int?) {
-        try {
-            progressDialog.show()
-            val idKota = id.toString()
-            val current = SimpleDateFormat("yyyy-MM-dd")
-            val tanggal = current.format(Date())
-            val url = "https://api.banghasan.com/sholat/format/json/jadwal/kota/$idKota/tanggal/$tanggal"
-            val task = ClientAsyncTask(this, object : ClientAsyncTask.OnPostExecuteListener {
-                override fun onPostExecute(result: String) {
-                    try {
-                        progressDialog.dismiss()
-                        val jsonObject = JSONObject(result)
-                        val strJadwal = jsonObject.getJSONObject("jadwal")
-                        val strData = strJadwal.getJSONObject("data")
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
 
-                        tvSubuh.text = strData.getString("subuh")
-                        tvDzuhur.text = strData.getString("dzuhur")
-                        tvAshar.text = strData.getString("ashar")
-                        tvMaghrib.text = strData.getString("maghrib")
-                        tvIsya.text = strData.getString("isya")
-                    } catch (e: JSONException) {
-                        e.printStackTrace()
+    private fun getDataJadwal(id: Int?) {
+        // equran.id v2 expects city ID as a string in the path
+        val cityId = id?.toString() ?: "1301" // Default to Jakarta ID
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR).toString()
+        val month = (calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+        progressDialog.show()
+        val apiService: ApiInterface = ApiService.getQuran()
+        val call = apiService.getJadwalSholat(cityId, year, month)
+
+        call.enqueue(object : Callback<ModelResult<ModelPrayerResult>> {
+            override fun onResponse(call: Call<ModelResult<ModelPrayerResult>>, response: Response<ModelResult<ModelPrayerResult>>) {
+                progressDialog.dismiss()
+                if (response.isSuccessful && response.body() != null && response.body()!!.code == 200) {
+                    val listJadwal = response.body()!!.data?.jadwal
+                    if (listJadwal != null && listJadwal.size >= day) {
+                        val data = listJadwal[day - 1]
+                        binding.tvSubuh.text = data.subuh
+                        binding.tvDzuhur.text = data.dzuhur
+                        binding.tvAshar.text = data.ashar
+                        binding.tvMaghrib.text = data.maghrib
+                        binding.tvIsya.text = data.isya
                     }
+                } else {
+                    Log.e("FragmentJadwalSholat", "API Error or No Data")
                 }
-            })
-            task.execute(url)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+            }
+
+            override fun onFailure(call: Call<ModelResult<ModelPrayerResult>>, t: Throwable) {
+                progressDialog.dismiss()
+                Log.e("FragmentJadwalSholat", t.toString())
+            }
+        })
     }
 
     private fun getDataKota() {
-        try {
-            progressDialog.show()
-            val url = "https://api.banghasan.com/sholat/format/json/kota"
-            val task = ClientAsyncTask(this, object : ClientAsyncTask.OnPostExecuteListener {
-                override fun onPostExecute(result: String) {
-                    try {
-                        progressDialog.dismiss()
-                        val jsonObject = JSONObject(result)
-                        val jsonArray = jsonObject.getJSONArray("kota")
-                        var daftarKota: DaftarKota?
-                        for (i in 0 until jsonArray.length()) {
-                            val obj = jsonArray.getJSONObject(i)
-                            daftarKota = DaftarKota()
-                            daftarKota.id = obj.getInt("id")
-                            daftarKota.nama = obj.getString("nama")
-                            listDaftarKota.add(daftarKota)
-                        }
-                        daftarKotaAdapter.notifyDataSetChanged()
-                    } catch (e: JSONException) {
-                        e.printStackTrace()
-                    }
-                }
-            })
-            task.execute(url)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        listDaftarKota.clear()
+        val cityData = arrayOf(
+            Pair(1301, "Jakarta"),
+            Pair(1638, "Surabaya"),
+            Pair(1210, "Bandung"),
+            Pair(228, "Medan"),
+            Pair(1524, "Semarang")
+        )
+        for (city in cityData) {
+            val d = DaftarKota()
+            d.id = city.first
+            d.nama = city.second
+            listDaftarKota.add(d)
         }
+        daftarKotaAdapter.notifyDataSetChanged()
     }
+
 
 }
