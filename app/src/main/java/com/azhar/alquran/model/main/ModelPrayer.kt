@@ -29,19 +29,42 @@ class ModelPrayer : Serializable {
     var isya: String? = null
 
     @SerializedName("tanggal")
-    var tanggal: String? = null
+    var tanggal: Int = 0
+
+    @SerializedName("tanggal_lengkap")
+    var tanggalLengkap: String? = null
+
+    @SerializedName("hari")
+    var hari: String? = null
 }
 
 class ModelPrayerResult : Serializable {
-    @SerializedName("id")
-    var id: Int = 0
+    @SerializedName("provinsi")
+    var provinsi: String? = null
 
-    @SerializedName("lokasi")
-    var lokasi: String? = null
+    @SerializedName("kabkota")
+    var kabkota: String? = null
 
-    @SerializedName("daerah")
-    var daerah: String? = null
+    @SerializedName("bulan")
+    var bulan: Int = 0
+
+    @SerializedName("tahun")
+    var tahun: Int = 0
+
+    @SerializedName("bulan_nama")
+    var bulanNama: String? = null
 
     @SerializedName("jadwal")
     var jadwal: ArrayList<ModelPrayer>? = null
 }
+
+data class ShalatRequest(
+    @SerializedName("provinsi")
+    val provinsi: String,
+    @SerializedName("kabkota")
+    val kabkota: String,
+    @SerializedName("bulan")
+    val bulan: Int,
+    @SerializedName("tahun")
+    val tahun: Int
+)

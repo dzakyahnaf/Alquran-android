@@ -10,10 +10,10 @@ package com.azhar.quran.model
  */
 
 class DaftarKota {
-    var id: Int? = null
-    var nama: String? = null
+    var provinsi: String? = null
+    var kabkota: String? = null
 
     override fun toString(): String {
-        return nama.toString()
+        return kabkota.toString()
     }
 }

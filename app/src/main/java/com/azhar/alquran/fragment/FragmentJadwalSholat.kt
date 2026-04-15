@@ -12,23 +12,19 @@ import android.widget.Spinner
 import androidx.core.content.ContextCompat
 import com.azhar.alquran.R
 import com.azhar.quran.model.DaftarKota
-import com.azhar.quran.utils.ClientAsyncTask
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.vivekkaushik.datepicker.DatePickerTimeline
 import com.azhar.alquran.databinding.FragmentJadwalSholatBinding
-import org.json.JSONException
-import org.json.JSONObject
-import java.text.SimpleDateFormat
 import java.util.*
 import com.azhar.alquran.model.main.ModelPrayerResult
 import com.azhar.alquran.model.main.ModelResult
+import com.azhar.alquran.model.main.ShalatRequest
 import com.azhar.alquran.networking.ApiInterface
 import com.azhar.alquran.networking.ApiService
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import android.util.Log
-import kotlin.collections.ArrayList
 
 class FragmentJadwalSholat : BottomSheetDialogFragment() {
 
@@ -88,7 +84,9 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
             override fun onNothingSelected(p0: AdapterView<*>) {}
             override fun onItemSelected(p0: AdapterView<*>, view: View?, position: Int, id: Long) {
                 val spinKota = daftarKotaAdapter.getItem(position)
-                getDataJadwal(spinKota?.id)
+                if (spinKota != null) {
+                    getDataJadwal(spinKota.provinsi, spinKota.kabkota)
+                }
             }
         }
 
@@ -122,17 +120,24 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
         _binding = null
     }
 
-    private fun getDataJadwal(id: Int?) {
-        // equran.id v2 expects city ID as a string in the path
-        val cityId = id?.toString() ?: "1301" // Default to Jakarta ID
+    private fun getDataJadwal(provinsi: String?, kabkota: String?) {
+        val prov = provinsi ?: "DKI Jakarta"
+        val kota = kabkota ?: "Kota Jakarta"
         val calendar = Calendar.getInstance()
-        val year = calendar.get(Calendar.YEAR).toString()
-        val month = (calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH) + 1
         val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+        val request = ShalatRequest(
+            provinsi = prov,
+            kabkota = kota,
+            bulan = month,
+            tahun = year
+        )
 
         progressDialog.show()
         val apiService: ApiInterface = ApiService.getQuran()
-        val call = apiService.getJadwalSholat(cityId, year, month)
+        val call = apiService.getJadwalSholat(request)
 
         call.enqueue(object : Callback<ModelResult<ModelPrayerResult>> {
             override fun onResponse(call: Call<ModelResult<ModelPrayerResult>>, response: Response<ModelResult<ModelPrayerResult>>) {
@@ -141,20 +146,23 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
                     val listJadwal = response.body()!!.data?.jadwal
                     if (listJadwal != null && listJadwal.size >= day) {
                         val data = listJadwal[day - 1]
-                        binding.tvSubuh.text = data.subuh
-                        binding.tvDzuhur.text = data.dzuhur
-                        binding.tvAshar.text = data.ashar
-                        binding.tvMaghrib.text = data.maghrib
-                        binding.tvIsya.text = data.isya
+                        binding.tvSubuh.text = data.subuh ?: "-"
+                        binding.tvDzuhur.text = data.dzuhur ?: "-"
+                        binding.tvAshar.text = data.ashar ?: "-"
+                        binding.tvMaghrib.text = data.maghrib ?: "-"
+                        binding.tvIsya.text = data.isya ?: "-"
+                        Log.d("FragmentJadwalSholat", "Jadwal loaded: Subuh=${data.subuh}, Dzuhur=${data.dzuhur}, Ashar=${data.ashar}, Maghrib=${data.maghrib}, Isya=${data.isya}")
+                    } else {
+                        Log.e("FragmentJadwalSholat", "No schedule data for day $day. List size: ${listJadwal?.size}")
                     }
                 } else {
-                    Log.e("FragmentJadwalSholat", "API Error or No Data")
+                    Log.e("FragmentJadwalSholat", "API Error: code=${response.code()}, body=${response.errorBody()?.string()}")
                 }
             }
 
             override fun onFailure(call: Call<ModelResult<ModelPrayerResult>>, t: Throwable) {
                 progressDialog.dismiss()
-                Log.e("FragmentJadwalSholat", t.toString())
+                Log.e("FragmentJadwalSholat", "Network error: ${t.message}", t)
             }
         })
     }
@@ -162,16 +170,26 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
     private fun getDataKota() {
         listDaftarKota.clear()
         val cityData = arrayOf(
-            Pair(1301, "Jakarta"),
-            Pair(1638, "Surabaya"),
-            Pair(1210, "Bandung"),
-            Pair(228, "Medan"),
-            Pair(1524, "Semarang")
+            Pair("DKI Jakarta", "Kota Jakarta"),
+            Pair("Jawa Barat", "Kota Bandung"),
+            Pair("Jawa Barat", "Kota Bogor"),
+            Pair("Jawa Barat", "Kota Bekasi"),
+            Pair("Jawa Barat", "Kota Depok"),
+            Pair("Banten", "Kota Tangerang"),
+            Pair("Jawa Tengah", "Kota Semarang"),
+            Pair("D.I. Yogyakarta", "Kota Yogyakarta"),
+            Pair("Jawa Timur", "Kota Surabaya"),
+            Pair("Jawa Timur", "Kota Malang"),
+            Pair("Sumatera Utara", "Kota Medan"),
+            Pair("Sumatera Barat", "Kota Padang"),
+            Pair("Riau", "Kota Pekanbaru"),
+            Pair("Sulawesi Selatan", "Kota Makassar"),
+            Pair("Bali", "Kota Denpasar")
         )
         for (city in cityData) {
             val d = DaftarKota()
-            d.id = city.first
-            d.nama = city.second
+            d.provinsi = city.first
+            d.kabkota = city.second
             listDaftarKota.add(d)
         }
         daftarKotaAdapter.notifyDataSetChanged()

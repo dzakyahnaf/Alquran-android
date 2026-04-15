@@ -1,10 +1,13 @@
 package com.azhar.alquran.networking
 
 import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.Body
 import com.azhar.alquran.model.main.ModelPrayerResult
 import com.azhar.alquran.model.main.ModelResult
 import com.azhar.alquran.model.main.ModelSurah
 import com.azhar.alquran.model.main.ModelSuratDetail
+import com.azhar.alquran.model.main.ShalatRequest
 import com.azhar.alquran.model.nearby.ModelResultOSM
 import com.azhar.alquran.model.response.ModelResultNearby
 import retrofit2.Call
@@ -30,11 +33,9 @@ interface ApiInterface {
         @Path("nomor") nomor: String
     ): Call<ModelResult<ModelSuratDetail>>
 
-    @GET("shalat/jadwal/{nama_kota}/{tahun}/{bulan}")
+    @POST("shalat")
     fun getJadwalSholat(
-        @Path("nama_kota") nama_kota: String,
-        @Path("tahun") tahun: String,
-        @Path("bulan") bulan: String
+        @Body request: ShalatRequest
     ): Call<ModelResult<ModelPrayerResult>>
 
     @GET("place/nearbysearch/json")
