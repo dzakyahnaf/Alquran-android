@@ -35,23 +35,29 @@ class SurahViewModel : ViewModel() {
         call.enqueue(object : Callback<ModelResult<ArrayList<ModelSurah>>> {
             override fun onResponse(call: Call<ModelResult<ArrayList<ModelSurah>>>, response: Response<ModelResult<ArrayList<ModelSurah>>>) {
                 if (!response.isSuccessful) {
-                    Log.e("response", response.toString())
+                    Log.e("SurahViewModel", "Response Error: ${response.code()} ${response.message()}")
                     modelSurahMutableLiveData.postValue(ArrayList())
                 } else {
                     val body = response.body()
-                    if (body != null && body.code == 200) {
-                        val items: ArrayList<ModelSurah> = body.data ?: ArrayList()
-                        Log.d("SurahViewModel", "Loaded ${items.size} surahs")
-                        modelSurahMutableLiveData.postValue(items)
+                    if (body != null) {
+                        Log.d("SurahViewModel", "API Response: code=${body.code}, message=${body.message}")
+                        if (body.code == 200 || body.code.toString() == "200") {
+                            val items: ArrayList<ModelSurah> = body.data ?: ArrayList()
+                            Log.d("SurahViewModel", "Loaded ${items.size} surahs")
+                            modelSurahMutableLiveData.postValue(items)
+                        } else {
+                            Log.e("SurahViewModel", "API Business Error: ${body.message}")
+                            modelSurahMutableLiveData.postValue(ArrayList())
+                        }
                     } else {
-                        Log.e("SurahViewModel", "API Error: ${body?.message}")
+                        Log.e("SurahViewModel", "Response body is null")
                         modelSurahMutableLiveData.postValue(ArrayList())
                     }
                 }
             }
 
             override fun onFailure(call: Call<ModelResult<ArrayList<ModelSurah>>>, t: Throwable) {
-                Log.e("failure", t.toString())
+                Log.e("SurahViewModel", "Network Failure: ${t.message}", t)
                 modelSurahMutableLiveData.postValue(ArrayList())
             }
         })
@@ -64,23 +70,29 @@ class SurahViewModel : ViewModel() {
         call.enqueue(object : Callback<ModelResult<ModelSuratDetail>> {
             override fun onResponse(call: Call<ModelResult<ModelSuratDetail>>, response: Response<ModelResult<ModelSuratDetail>>) {
                 if (!response.isSuccessful) {
-                    Log.e("response", response.toString())
+                    Log.e("SurahViewModel", "Response Error: ${response.code()} ${response.message()}")
                     modelAyatMutableLiveData.postValue(ArrayList())
                 } else {
                     val body = response.body()
-                    if (body != null && body.code == 200) {
-                        val items: ArrayList<ModelAyat> = body.data?.verses ?: ArrayList()
-                        Log.d("SurahViewModel", "Loaded ${items.size} verses")
-                        modelAyatMutableLiveData.postValue(items)
+                    if (body != null) {
+                        Log.d("SurahViewModel", "API Response: code=${body.code}, message=${body.message}")
+                        if (body.code == 200 || body.code.toString() == "200") {
+                            val items: ArrayList<ModelAyat> = body.data?.verses ?: ArrayList()
+                            Log.d("SurahViewModel", "Loaded ${items.size} verses")
+                            modelAyatMutableLiveData.postValue(items)
+                        } else {
+                            Log.e("SurahViewModel", "API Business Error: ${body.message}")
+                            modelAyatMutableLiveData.postValue(ArrayList())
+                        }
                     } else {
-                        Log.e("SurahViewModel", "API Error: ${body?.message}")
+                        Log.e("SurahViewModel", "Response body is null")
                         modelAyatMutableLiveData.postValue(ArrayList())
                     }
                 }
             }
 
             override fun onFailure(call: Call<ModelResult<ModelSuratDetail>>, t: Throwable) {
-                Log.e("failure", t.toString())
+                Log.e("SurahViewModel", "Network Failure: ${t.message}", t)
                 modelAyatMutableLiveData.postValue(ArrayList())
             }
         })

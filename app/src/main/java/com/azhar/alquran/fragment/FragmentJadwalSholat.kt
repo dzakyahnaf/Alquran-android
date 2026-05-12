@@ -142,21 +142,31 @@ class FragmentJadwalSholat : BottomSheetDialogFragment() {
         call.enqueue(object : Callback<ModelResult<ModelPrayerResult>> {
             override fun onResponse(call: Call<ModelResult<ModelPrayerResult>>, response: Response<ModelResult<ModelPrayerResult>>) {
                 progressDialog.dismiss()
-                if (response.isSuccessful && response.body() != null && response.body()!!.code == 200) {
-                    val listJadwal = response.body()!!.data?.jadwal
-                    if (listJadwal != null && listJadwal.size >= day) {
-                        val data = listJadwal[day - 1]
-                        binding.tvSubuh.text = data.subuh ?: "-"
-                        binding.tvDzuhur.text = data.dzuhur ?: "-"
-                        binding.tvAshar.text = data.ashar ?: "-"
-                        binding.tvMaghrib.text = data.maghrib ?: "-"
-                        binding.tvIsya.text = data.isya ?: "-"
-                        Log.d("FragmentJadwalSholat", "Jadwal loaded: Subuh=${data.subuh}, Dzuhur=${data.dzuhur}, Ashar=${data.ashar}, Maghrib=${data.maghrib}, Isya=${data.isya}")
-                    } else {
-                        Log.e("FragmentJadwalSholat", "No schedule data for day $day. List size: ${listJadwal?.size}")
-                    }
+                if (!response.isSuccessful) {
+                    Log.e("FragmentJadwalSholat", "Response Error: ${response.code()} ${response.message()}")
                 } else {
-                    Log.e("FragmentJadwalSholat", "API Error: code=${response.code()}, body=${response.errorBody()?.string()}")
+                    val body = response.body()
+                    if (body != null) {
+                        Log.d("FragmentJadwalSholat", "API Response: code=${body.code}, message=${body.message}")
+                        if (body.code == 200 || body.code.toString() == "200") {
+                            val listJadwal = body.data?.jadwal
+                            if (listJadwal != null && listJadwal.size >= day) {
+                                val data = listJadwal[day - 1]
+                                binding.tvSubuh.text = data.subuh ?: "-"
+                                binding.tvDzuhur.text = data.dzuhur ?: "-"
+                                binding.tvAshar.text = data.ashar ?: "-"
+                                binding.tvMaghrib.text = data.maghrib ?: "-"
+                                binding.tvIsya.text = data.isya ?: "-"
+                                Log.d("FragmentJadwalSholat", "Jadwal loaded for day $day: Subuh=${data.subuh}")
+                            } else {
+                                Log.e("FragmentJadwalSholat", "No schedule data for day $day. List size: ${listJadwal?.size}")
+                            }
+                        } else {
+                            Log.e("FragmentJadwalSholat", "API Business Error: ${body.message}")
+                        }
+                    } else {
+                        Log.e("FragmentJadwalSholat", "Response body is null")
+                    }
                 }
             }
 

@@ -1,10 +1,13 @@
 package com.azhar.alquran.activities
 
-import android.app.ProgressDialog
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.NewInstanceFactory
 import com.azhar.alquran.R
@@ -27,8 +30,9 @@ class MasjidActivity : AppCompatActivity() {
     var strCurrentLongitude = 0.0
     lateinit var strCurrentLocation: String
     lateinit var simpleLocation: SimpleLocation
-    lateinit var progressDialog: ProgressDialog
+    lateinit var progressDialog: android.app.ProgressDialog
     lateinit var masjidViewModel: MasjidViewModel
+    var REQ_PERMISSION = 1000
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,19 +43,18 @@ class MasjidActivity : AppCompatActivity() {
         binding = ActivityMasjidBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        progressDialog = ProgressDialog(this)
+        progressDialog = android.app.ProgressDialog(this)
         progressDialog.setTitle("Mohon Tunggu…")
         progressDialog.setCancelable(false)
         progressDialog.setMessage("sedang menampilkan lokasi")
 
+        setPermission()
         setInitLayout()
         
         // Initial map setup
         binding.mapView.setTileSource(TileSourceFactory.MAPNIK)
         binding.mapView.setMultiTouchControls(true)
         binding.mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-        
-        setViewModel()
     }
 
     private fun setInitLayout() {
@@ -60,21 +63,78 @@ class MasjidActivity : AppCompatActivity() {
         assert(supportActionBar != null)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        simpleLocation = SimpleLocation(this)
+        simpleLocation = SimpleLocation(this, false)
+        
+        // Start updates immediately
+        simpleLocation.beginUpdates()
+
         if (!simpleLocation.hasLocationEnabled()) {
             SimpleLocation.openSettings(this)
         }
 
-        //get location
+        simpleLocation.setListener(object : SimpleLocation.Listener {
+            override fun onPositionChanged() {
+                val lat = simpleLocation.latitude
+                val lng = simpleLocation.longitude
+                // Jika lokasi sudah didapatkan dan sebelumnya 0.0 (belum fetch)
+                if (lat != 0.0 && lng != 0.0 && strCurrentLatitude == 0.0) {
+                    strCurrentLatitude = lat
+                    strCurrentLongitude = lng
+                    strCurrentLocation = "$strCurrentLatitude,$strCurrentLongitude"
+                    setViewModel()
+                }
+            }
+        })
+
+        //get location initially if available
         strCurrentLatitude = simpleLocation.latitude
         strCurrentLongitude = simpleLocation.longitude
 
-        //set location lat long
-        strCurrentLocation = "$strCurrentLatitude,$strCurrentLongitude"
+        if (strCurrentLatitude != 0.0 || strCurrentLongitude != 0.0) {
+            // Sudah ada lokasi dari cache
+            strCurrentLocation = "$strCurrentLatitude,$strCurrentLongitude"
+            setViewModel()
+        } else {
+            // Menunggu listener mendapatkan lokasi
+            progressDialog.setMessage("Sedang mencari titik lokasi GPS Anda...")
+            progressDialog.show()
+            
+            // Timeout 10 detik agar tidak stuck
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (strCurrentLatitude == 0.0 && progressDialog.isShowing) {
+                    progressDialog.dismiss()
+                    Toast.makeText(this, "Gagal mendapatkan lokasi GPS. Pastikan GPS Anda aktif.", Toast.LENGTH_SHORT).show()
+                }
+            }, 10000)
+        }
+    }
+
+    private fun setPermission() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+            && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQ_PERMISSION)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        for (grantResult in grantResults) {
+            if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                val intent = intent
+                finish()
+                startActivity(intent)
+            }
+        }
     }
 
     private fun setViewModel() {
-        progressDialog.show()
+        progressDialog.setMessage("Sedang mencari masjid terdekat...")
+        if (!progressDialog.isShowing) progressDialog.show()
+        
         masjidViewModel = ViewModelProvider(this, NewInstanceFactory()).get(MasjidViewModel::class.java)
         masjidViewModel.setMarkerLocation(strCurrentLocation)
         masjidViewModel.getMarkerLocation()
@@ -83,7 +143,7 @@ class MasjidActivity : AppCompatActivity() {
                     getMarker(modelResults)
                     progressDialog.dismiss()
                 } else {
-                    Toast.makeText(this, "Oops, tidak bisa mendapatkan lokasi kamu!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Oops, tidak ada masjid yang ditemukan di sekitar lokasi Anda!", Toast.LENGTH_SHORT).show()
                     progressDialog.dismiss()
                 }
                 progressDialog.dismiss()
@@ -118,11 +178,13 @@ class MasjidActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         binding.mapView.onResume()
+        simpleLocation.beginUpdates()
     }
 
     override fun onPause() {
         super.onPause()
         binding.mapView.onPause()
+        simpleLocation.endUpdates()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
