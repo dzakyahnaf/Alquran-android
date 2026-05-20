@@ -3,6 +3,8 @@ package com.azhar.alquran.networking
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Body
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
 import com.azhar.alquran.model.main.ModelPrayerResult
 import com.azhar.alquran.model.main.ModelResult
 import com.azhar.alquran.model.main.ModelSurah
@@ -46,8 +48,9 @@ interface ApiInterface {
         @Query("rankby") rankby: String
     ): Call<ModelResultNearby>
 
-    @GET("interpreter")
+    @FormUrlEncoded
+    @POST("interpreter")
     fun getMasjidOSM(
-        @Query("data") data: String
+        @Field("data") data: String
     ): Call<ModelResultOSM>
 }

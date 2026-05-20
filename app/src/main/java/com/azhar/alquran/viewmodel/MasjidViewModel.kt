@@ -33,8 +33,11 @@ class MasjidViewModel : ViewModel() {
         val apiService: ApiInterface = ApiOSM.getOSM()
 
         // Overpass QL query: find mosques within 5000m of the given coordinates
-        // Usage: [out:json];node(around:radius,lat,lon)[tags];out;
-        val query = "[out:json];node(around:5000,$strLocation)[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"];out;"
+        // Use nwr (node/way/relation) to catch all mosque types, not just nodes
+        // 'out center' gives center coordinates for way/relation elements
+        val query = "[out:json];nwr(around:5000,$strLocation)[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"];out center;"
+
+        Log.d("MasjidVM", "Overpass query: $query")
 
         val call = apiService.getMasjidOSM(query)
         call.enqueue(object : Callback<ModelResultOSM> {
@@ -46,20 +49,31 @@ class MasjidViewModel : ViewModel() {
                     val osmElements = response.body()?.elements ?: ArrayList()
                     val items = ArrayList<ModelResults>()
 
+                    Log.d("MasjidVM", "Found ${osmElements.size} elements from Overpass")
+
                     // Transform OSM elements to existing ModelResults structure
                     for (element in osmElements) {
+                        // For nodes: lat/lon are top-level
+                        // For ways/relations: lat/lon are in nested "center" object
+                        val lat = if (element.lat != 0.0) element.lat else element.center?.lat ?: 0.0
+                        val lon = if (element.lon != 0.0) element.lon else element.center?.lon ?: 0.0
+
+                        // Skip elements without valid coordinates
+                        if (lat == 0.0 && lon == 0.0) continue
+
                         val modelResults = ModelResults()
                         modelResults.name = element.tags?.name ?: "Masjid"
                         
                         val geometry = ModelGeometry()
                         val location = ModelLocation()
-                        location.lat = element.lat
-                        location.lng = element.lon
+                        location.lat = lat
+                        location.lng = lon
                         geometry.modelLocation = location
                         modelResults.modelGeometry = geometry
                         
                         items.add(modelResults)
                     }
+                    Log.d("MasjidVM", "Mapped ${items.size} valid mosque markers")
                     modelResultsMutableLiveData.postValue(items)
                 } else {
                     modelResultsMutableLiveData.postValue(ArrayList())

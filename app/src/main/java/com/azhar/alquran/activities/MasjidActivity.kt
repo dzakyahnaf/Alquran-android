@@ -1,20 +1,26 @@
 package com.azhar.alquran.activities
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
+import android.util.Log
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.NewInstanceFactory
-import com.azhar.alquran.R
 import com.azhar.alquran.databinding.ActivityMasjidBinding
 import com.azhar.alquran.model.nearby.ModelResults
 import com.azhar.alquran.viewmodel.MasjidViewModel
-import im.delight.android.location.SimpleLocation
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -24,96 +30,79 @@ import java.util.*
 
 class MasjidActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMasjidBinding
+    companion object {
+        private const val TAG = "MasjidActivity"
+        private const val REQ_PERMISSION = 1000
+        private const val LOCATION_TIMEOUT_MS = 15000L
+    }
 
-    var strCurrentLatitude = 0.0
-    var strCurrentLongitude = 0.0
-    lateinit var strCurrentLocation: String
-    lateinit var simpleLocation: SimpleLocation
-    lateinit var progressDialog: android.app.ProgressDialog
-    lateinit var masjidViewModel: MasjidViewModel
-    var REQ_PERMISSION = 1000
+    private lateinit var binding: ActivityMasjidBinding
+    private lateinit var progressDialog: android.app.ProgressDialog
+    private lateinit var masjidViewModel: MasjidViewModel
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private var strCurrentLatitude = 0.0
+    private var strCurrentLongitude = 0.0
+    private var strCurrentLocation = ""
+    private var locationFound = false
+
+    private var locationCallback: LocationCallback? = null
+    private val timeoutHandler = android.os.Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // OSMDroid configuration
         Configuration.getInstance().userAgentValue = packageName
-        
+
         binding = ActivityMasjidBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Setup toolbar
+        binding.toolbar.setTitle(null)
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        // Setup progress dialog
         progressDialog = android.app.ProgressDialog(this)
         progressDialog.setTitle("Mohon Tunggu…")
         progressDialog.setCancelable(false)
-        progressDialog.setMessage("sedang menampilkan lokasi")
+        progressDialog.setMessage("Sedang mencari titik lokasi GPS Anda...")
 
-        setPermission()
-        setInitLayout()
-        
         // Initial map setup
         binding.mapView.setTileSource(TileSourceFactory.MAPNIK)
         binding.mapView.setMultiTouchControls(true)
         binding.mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+
+        // Initialize FusedLocationProviderClient
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        // Check permission then start location detection
+        checkAndRequestPermission()
     }
 
-    private fun setInitLayout() {
-        binding.toolbar.setTitle(null)
-        setSupportActionBar(binding.toolbar)
-        assert(supportActionBar != null)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
-        simpleLocation = SimpleLocation(this, false)
-        
-        // Start updates immediately
-        simpleLocation.beginUpdates()
-
-        if (!simpleLocation.hasLocationEnabled()) {
-            SimpleLocation.openSettings(this)
-        }
-
-        simpleLocation.setListener(object : SimpleLocation.Listener {
-            override fun onPositionChanged() {
-                val lat = simpleLocation.latitude
-                val lng = simpleLocation.longitude
-                // Jika lokasi sudah didapatkan dan sebelumnya 0.0 (belum fetch)
-                if (lat != 0.0 && lng != 0.0 && strCurrentLatitude == 0.0) {
-                    strCurrentLatitude = lat
-                    strCurrentLongitude = lng
-                    strCurrentLocation = "$strCurrentLatitude,$strCurrentLongitude"
-                    setViewModel()
-                }
-            }
-        })
-
-        //get location initially if available
-        strCurrentLatitude = simpleLocation.latitude
-        strCurrentLongitude = simpleLocation.longitude
-
-        if (strCurrentLatitude != 0.0 || strCurrentLongitude != 0.0) {
-            // Sudah ada lokasi dari cache
-            strCurrentLocation = "$strCurrentLatitude,$strCurrentLongitude"
-            setViewModel()
+    /**
+     * Cek permission lokasi. Jika sudah granted, langsung mulai deteksi lokasi.
+     * Jika belum, request permission dulu.
+     */
+    private fun checkAndRequestPermission() {
+        if (hasLocationPermission()) {
+            startLocationDetection()
         } else {
-            // Menunggu listener mendapatkan lokasi
-            progressDialog.setMessage("Sedang mencari titik lokasi GPS Anda...")
-            progressDialog.show()
-            
-            // Timeout 10 detik agar tidak stuck
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (strCurrentLatitude == 0.0 && progressDialog.isShowing) {
-                    progressDialog.dismiss()
-                    Toast.makeText(this, "Gagal mendapatkan lokasi GPS. Pastikan GPS Anda aktif.", Toast.LENGTH_SHORT).show()
-                }
-            }, 10000)
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                REQ_PERMISSION
+            )
         }
     }
 
-    private fun setPermission() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-            && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQ_PERMISSION)
-        }
+    private fun hasLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onRequestPermissionsResult(
@@ -122,37 +111,166 @@ class MasjidActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        for (grantResult in grantResults) {
-            if (grantResult == PackageManager.PERMISSION_GRANTED) {
-                val intent = intent
-                finish()
-                startActivity(intent)
+        if (requestCode == REQ_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, mulai deteksi lokasi
+                startLocationDetection()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Izin lokasi diperlukan untuk mencari masjid terdekat.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
+        }
+    }
+
+    /**
+     * Mulai proses deteksi lokasi menggunakan FusedLocationProviderClient.
+     * Flow: getLastLocation() → jika null → requestLocationUpdates()
+     */
+    private fun startLocationDetection() {
+        if (!hasLocationPermission()) return
+
+        // Cek apakah GPS/Location services aktif
+        val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+        if (!isGpsEnabled && !isNetworkEnabled) {
+            Toast.makeText(this, "Mohon aktifkan GPS/Lokasi di pengaturan perangkat Anda.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        progressDialog.show()
+
+        try {
+            // Step 1: Coba getLastLocation() dulu (instant, dari cache)
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    if (location != null && !locationFound) {
+                        Log.d(TAG, "Got location from lastLocation: ${location.latitude}, ${location.longitude}")
+                        onLocationObtained(location.latitude, location.longitude)
+                    } else {
+                        // lastLocation null → request fresh location
+                        Log.d(TAG, "lastLocation is null, requesting fresh location...")
+                        requestFreshLocation()
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "lastLocation failed: ${e.message}")
+                    requestFreshLocation()
+                }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException: ${e.message}")
+            dismissProgressSafe()
+            Toast.makeText(this, "Izin lokasi tidak tersedia.", Toast.LENGTH_SHORT).show()
+        }
+
+        // Timeout safety net
+        timeoutHandler.postDelayed({
+            if (!locationFound && !isFinishing) {
+                stopLocationUpdates()
+                dismissProgressSafe()
+                Toast.makeText(
+                    this,
+                    "Gagal mendapatkan lokasi GPS. Pastikan GPS Anda aktif dan coba lagi.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }, LOCATION_TIMEOUT_MS)
+    }
+
+    /**
+     * Request lokasi baru jika getLastLocation() gagal / null.
+     */
+    private fun requestFreshLocation() {
+        if (!hasLocationPermission() || locationFound) return
+
+        try {
+            val locationRequest = LocationRequest.create().apply {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                interval = 1000L
+                fastestInterval = 500L
+                numUpdates = 1
+            }
+
+            locationCallback = object : LocationCallback() {
+                override fun onLocationResult(result: LocationResult) {
+                    val location = result.lastLocation
+                    if (location != null && !locationFound) {
+                        Log.d(TAG, "Got fresh location: ${location.latitude}, ${location.longitude}")
+                        onLocationObtained(location.latitude, location.longitude)
+                        stopLocationUpdates()
+                    }
+                }
+            }
+
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback!!,
+                Looper.getMainLooper()
+            )
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException on requestLocationUpdates: ${e.message}")
+            dismissProgressSafe()
+        }
+    }
+
+    /**
+     * Dipanggil saat lokasi berhasil didapatkan.
+     */
+    private fun onLocationObtained(latitude: Double, longitude: Double) {
+        if (locationFound) return // Prevent duplicate calls
+        locationFound = true
+
+        strCurrentLatitude = latitude
+        strCurrentLongitude = longitude
+        strCurrentLocation = "$strCurrentLatitude,$strCurrentLongitude"
+
+        // Cancel timeout
+        timeoutHandler.removeCallbacksAndMessages(null)
+
+        setViewModel()
+    }
+
+    private fun stopLocationUpdates() {
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+            locationCallback = null
+        }
+    }
+
+    private fun dismissProgressSafe() {
+        if (progressDialog.isShowing && !isFinishing) {
+            progressDialog.dismiss()
         }
     }
 
     private fun setViewModel() {
         progressDialog.setMessage("Sedang mencari masjid terdekat...")
-        if (!progressDialog.isShowing) progressDialog.show()
-        
+        if (!progressDialog.isShowing && !isFinishing) progressDialog.show()
+
         masjidViewModel = ViewModelProvider(this, NewInstanceFactory()).get(MasjidViewModel::class.java)
         masjidViewModel.setMarkerLocation(strCurrentLocation)
         masjidViewModel.getMarkerLocation()
-            .observe(this, { modelResults: ArrayList<ModelResults> ->
+            .observe(this) { modelResults: ArrayList<ModelResults> ->
+                dismissProgressSafe()
                 if (modelResults.size != 0) {
                     getMarker(modelResults)
-                    progressDialog.dismiss()
                 } else {
-                    Toast.makeText(this, "Oops, tidak ada masjid yang ditemukan di sekitar lokasi Anda!", Toast.LENGTH_SHORT).show()
-                    progressDialog.dismiss()
+                    Toast.makeText(
+                        this,
+                        "Oops, tidak ada masjid yang ditemukan di sekitar lokasi Anda!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
-                progressDialog.dismiss()
-            })
+            }
     }
 
     private fun getMarker(modelResultsArrayList: ArrayList<ModelResults>) {
         binding.mapView.overlays.clear()
-        
+
         for (i in modelResultsArrayList.indices) {
             val element = modelResultsArrayList[i]
             val lat = element.modelGeometry.modelLocation.lat
@@ -178,13 +296,18 @@ class MasjidActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         binding.mapView.onResume()
-        simpleLocation.beginUpdates()
     }
 
     override fun onPause() {
         super.onPause()
         binding.mapView.onPause()
-        simpleLocation.endUpdates()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopLocationUpdates()
+        timeoutHandler.removeCallbacksAndMessages(null)
+        dismissProgressSafe()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

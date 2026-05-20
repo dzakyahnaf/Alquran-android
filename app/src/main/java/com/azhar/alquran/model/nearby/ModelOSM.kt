@@ -17,9 +17,22 @@ class ModelOSM : Serializable {
 
     @SerializedName("tags")
     var tags: ModelOSMTags? = null
+
+    // For way/relation elements, coordinates are in a nested "center" object
+    @SerializedName("center")
+    var center: ModelOSMCenter? = null
+}
+
+class ModelOSMCenter : Serializable {
+    @SerializedName("lat")
+    var lat: Double = 0.0
+
+    @SerializedName("lon")
+    var lon: Double = 0.0
 }
 
 class ModelOSMTags : Serializable {
     @SerializedName("name")
     var name: String? = null
 }
+
